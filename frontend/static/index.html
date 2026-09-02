@@ -1,57 +1,670 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent</title>
-<!-- Optional: used only to draw A2UI Icon components. If it can't load (offline/
-     corp network), icons fall back to showing their name as text. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
-<style>
-  :root { --accent:#1a73e8; --bg:#f6f8fa; --border:#dfe3e8; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); display:flex; flex-direction:column; height:100vh; }
-  header { background:var(--accent); color:#fff; padding:.9rem 1.2rem; font-weight:700; }
-  #log { flex:1; overflow-y:auto; padding:1.2rem; max-width:780px; width:100%; margin:0 auto; }
-  .msg { margin:.6rem 0; }
-  .msg.user { text-align:right; }
-  .bubble { display:inline-block; padding:.6rem .9rem; border-radius:12px; background:#fff; border:1px solid var(--border); text-align:left; max-width:90%; white-space:pre-wrap; }
-  .msg.user .bubble { background:var(--accent); color:#fff; border:none; }
-  /* When the reply is an A2UI card, drop the bubble chrome so the card stands alone. */
-  .bubble.rich { background:transparent; border:none; padding:0; max-width:100%; white-space:normal; }
-  form { display:flex; gap:.5rem; padding:1rem; border-top:1px solid var(--border); background:#fff; }
-  input { flex:1; padding:.7rem; border:1px solid var(--border); border-radius:8px; font-size:1rem; }
-  button { padding:.7rem 1.1rem; border:none; border-radius:8px; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+<title>Family Road Trip Navigator - Night Edition</title>
+<!-- Google Fonts, Material Symbols & Leaflet CSS -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  /* --- A2UI component styles (Card, Column, Row, Text, Divider, List, Image, Icon) --- */
-  .a2card { border:1px solid var(--border); border-radius:12px; padding:1rem; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.06); max-width:100%; }
-  .a2card + .a2card, .a2col > .a2card { margin-top:.6rem; }
-  .a2col { display:flex; flex-direction:column; gap:.4rem; }
-  .a2row { display:flex; flex-direction:row; gap:.6rem; align-items:center; flex-wrap:wrap; }
-  .a2row.between { justify-content:space-between; }
-  .a2text { margin:0; line-height:1.4; }
-  .a2text.a2-h1 { font-size:1.5rem; font-weight:700; }
-  .a2text.a2-h2 { font-size:1.25rem; font-weight:700; }
-  .a2text.a2-h3 { font-size:1.1rem; font-weight:600; }
-  .a2text.a2-h4 { font-size:1rem; font-weight:600; }
-  .a2text.a2-caption { font-size:.85rem; color:#666; }
-  .a2divider { border:none; border-top:1px solid var(--border); margin:.4rem 0; width:100%; }
-  .a2img { max-width:100%; border-radius:8px; display:block; }
-  .material-symbols-outlined { font-family:'Material Symbols Outlined'; font-size:1.25rem; line-height:1; vertical-align:middle; color:var(--accent); }
+<style>
+  :root[data-theme="dark"] {
+    --bg-main: #0b0f19;
+    --card-bg: #151c2c;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --primary: #818cf8;
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    --header-bg: #090d16;
+    --input-bg: #111827;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 30px rgba(99, 102, 241, 0.25);
+  }
+
+  :root[data-theme="light"] {
+    --bg-main: #f8fafc;
+    --card-bg: #ffffff;
+    --border-color: #e2e8f0;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --primary: #4f46e5;
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+    --header-bg: #0f172a;
+    --input-bg: #f8fafc;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08);
+    --shadow-lg: 0 10px 25px -5px rgba(99, 102, 241, 0.15);
+  }
+
+  * { box-sizing: border-box; }
+  
+  body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  /* Header Bar */
+  header {
+    background: var(--header-bg);
+    color: #ffffff;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    z-index: 1000;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .header-icon {
+    width: 38px;
+    height: 38px;
+    background: var(--primary-gradient);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+  }
+
+  .header-icon span {
+    color: #ffffff;
+    font-size: 22px;
+  }
+
+  .header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Header Navigation Tabs */
+  .nav-tabs {
+    display: flex;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+  }
+
+  .nav-tab {
+    padding: 0.45rem 0.95rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nav-tab.active {
+    background: var(--primary-gradient);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .theme-toggle-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-color);
+    color: #f1f5f9;
+    padding: 0.45rem 0.75rem;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  .theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.02);
+  }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #10b981;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* Main Layout */
+  .main-container {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Chat View */
+  .chat-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  .chat-view.hidden { display: none; }
+
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 1rem;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    scroll-behavior: smooth;
+  }
+
+  .quick-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    justify-content: center;
+  }
+
+  .prompt-pill {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 0.45rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.825rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .prompt-pill:hover {
+    border-color: #818cf8;
+    color: var(--text-main);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user { align-items: flex-end; }
+  .msg.agent { align-items: flex-start; }
+
+  .bubble {
+    display: inline-block;
+    padding: 0.85rem 1.15rem;
+    border-radius: 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    text-align: left;
+    max-width: 85%;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .msg.user .bubble {
+    background: var(--primary-gradient);
+    color: #ffffff;
+    border: none;
+    border-bottom-right-radius: 4px;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .msg.agent .bubble {
+    border-bottom-left-radius: 4px;
+    color: var(--text-main);
+  }
+
+  .bubble.rich {
+    background: transparent;
+    border: none;
+    padding: 0;
+    max-width: 100%;
+    white-space: normal;
+    box-shadow: none;
+  }
+
+  .input-area {
+    background: var(--header-bg);
+    border-top: 1px solid var(--border-color);
+    padding: 1rem;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+  }
+
+  form {
+    display: flex;
+    gap: 0.75rem;
+    max-width: 860px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  input {
+    flex: 1;
+    padding: 0.85rem 1.2rem;
+    border: 1.5px solid var(--border-color);
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: var(--input-bg);
+    color: var(--text-main);
+    transition: all 0.2s ease;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2);
+  }
+
+  button {
+    padding: 0.85rem 1.4rem;
+    border: none;
+    border-radius: 14px;
+    background: var(--primary-gradient);
+    color: #ffffff;
+    font-weight: 600;
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+    transition: all 0.2s ease;
+  }
+
+  button:hover { transform: translateY(-1px); }
+
+  /* Map View */
+  .map-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    position: relative;
+  }
+
+  .map-view.hidden { display: none; }
+
+  #map {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    background: #0b0f19;
+  }
+
+  .map-overlay {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 500;
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    padding: 0.85rem 1.1rem;
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 320px;
+    color: #ffffff;
+  }
+
+  .map-title {
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .map-stats {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .stat-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    border: 1px solid rgba(129, 140, 248, 0.3);
+  }
+
+  .stat-badge.social {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .refresh-btn {
+    padding: 0.45rem 0.85rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--primary-gradient);
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  /* A2UI Component Styles */
+  .a2card {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    background: var(--card-bg);
+    box-shadow: var(--shadow-md);
+    max-width: 100%;
+  }
+  .a2card + .a2card, .a2col > .a2card { margin-top: 0.75rem; }
+  .a2col { display: flex; flex-direction: column; gap: 0.5rem; }
+  .a2row { display: flex; flex-direction: row; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .a2row.between { justify-content: space-between; }
+  .a2text { margin: 0; line-height: 1.5; color: var(--text-main); }
+  .a2text.a2-h1 { font-size: 1.4rem; font-weight: 800; color: var(--text-main); }
+  .a2text.a2-h2 { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
+  .a2text.a2-h3 { font-size: 1.05rem; font-weight: 600; color: var(--text-muted); }
+  .a2text.a2-h4 { font-size: 0.95rem; font-weight: 600; color: var(--text-muted); }
+  .a2text.a2-caption { font-size: 0.85rem; color: var(--text-muted); }
+  .a2divider { border: none; border-top: 1px solid var(--border-color); margin: 0.6rem 0; width: 100%; }
+  .a2img { max-width: 100%; border-radius: 12px; display: block; box-shadow: var(--shadow-sm); }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 1.25rem; line-height: 1; vertical-align: middle; color: #818cf8; }
 </style>
 </head>
 <body>
-<header>Your Agent</header>
-<div id="log"></div>
-<form id="form">
-  <input id="input" placeholder="Ask something…" autocomplete="off" autofocus>
-  <button>Send</button>
-</form>
+<header>
+  <div class="header-brand">
+    <div class="header-icon">
+      <span class="material-symbols-outlined">nightight</span>
+    </div>
+    <div class="header-title">Family Road Trip Navigator</div>
+  </div>
+
+  <!-- View Switcher Tabs -->
+  <div class="nav-tabs">
+    <div class="nav-tab active" id="tab-chat" onclick="switchTab('chat')">
+      <span class="material-symbols-outlined" style="font-size:16px;">chat</span>
+      <span>Chat</span>
+    </div>
+    <div class="nav-tab" id="tab-map" onclick="switchTab('map')">
+      <span class="material-symbols-outlined" style="font-size:16px;">map</span>
+      <span>Night Map & POIs</span>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <button class="theme-toggle-btn" onclick="toggleTheme()">
+      <span class="material-symbols-outlined" id="theme-icon" style="font-size:16px;">dark_mode</span>
+      <span id="theme-label">Night</span>
+    </button>
+    <div class="header-status">
+      <div class="status-dot"></div>
+      <span>Agent Active</span>
+    </div>
+  </div>
+</header>
+
+<div class="main-container">
+  <!-- Chat View -->
+  <div class="chat-view" id="view-chat">
+    <div id="log">
+      <div class="quick-prompts">
+        <div class="prompt-pill" onclick="sendPrompt('Plan a 3-day trip from Chicago to the UP of Michigan with kid-friendly stops')">🚗 Trip: Chicago to UP Michigan</div>
+        <div class="prompt-pill" onclick="sendPrompt('Find fun stops along my route')">📍 Kid-Friendly Stops</div>
+        <div class="prompt-pill" onclick="sendPrompt('Record a severe peanut allergy for my son')">🥜 Record Family Allergy</div>
+        <div class="prompt-pill" onclick="sendPrompt('Generate a scenic postcard for Mackinac Island')">📸 Postcard Generator</div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <form id="form">
+        <input id="input" placeholder="Ask about routes, kid-friendly stops, or allergies..." autocomplete="off" autofocus>
+        <button type="submit">
+          <span>Send</span>
+          <span class="material-symbols-outlined" style="font-size:18px; color:#fff;">send</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Interactive Map View -->
+  <div class="map-view hidden" id="view-map">
+    <div class="map-overlay">
+      <div class="map-title">
+        <span class="material-symbols-outlined">alt_route</span>
+        <span>Night Route Corridor & POIs</span>
+      </div>
+      <div class="map-stats">
+        <div class="stat-badge" id="badge-total">0 Stops</div>
+        <div class="stat-badge social" id="badge-social">0 Social Picks</div>
+      </div>
+      <button class="refresh-btn" onclick="loadMapStops()">
+        <span class="material-symbols-outlined" style="font-size:16px;">sync</span>
+        <span>Refresh Flagged POIs</span>
+      </button>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
 
 <script>
 const log = document.getElementById("log");
 const form = document.getElementById("form");
 const input = document.getElementById("input");
+
+let mapInstance = null;
+let tileLayerInstance = null;
+let markersGroup = null;
+let routePolyline = null;
+let currentTheme = "dark";
+
+function toggleTheme() {
+  currentTheme = currentTheme === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  
+  const icon = document.getElementById("theme-icon");
+  const label = document.getElementById("theme-label");
+  if (currentTheme === "dark") {
+    icon.textContent = "dark_mode";
+    label.textContent = "Night";
+  } else {
+    icon.textContent = "light_mode";
+    label.textContent = "Day";
+  }
+
+  if (mapInstance && tileLayerInstance) {
+    mapInstance.removeLayer(tileLayerInstance);
+    const tileUrl = currentTheme === "dark" 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    tileLayerInstance = L.tileLayer(tileUrl, {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(mapInstance);
+  }
+}
+
+function switchTab(tab) {
+  document.getElementById("tab-chat").classList.toggle("active", tab === "chat");
+  document.getElementById("tab-map").classList.toggle("active", tab === "map");
+  document.getElementById("view-chat").classList.toggle("hidden", tab !== "chat");
+  document.getElementById("view-map").classList.toggle("hidden", tab !== "map");
+
+  if (tab === "map") {
+    initMapIfNeeded();
+  }
+}
+
+function initMapIfNeeded() {
+  if (!mapInstance) {
+    mapInstance = L.map('map').setView([44.5, -86.5], 6);
+    
+    // CartoDB Dark Matter night tiles
+    const tileUrl = currentTheme === "dark" 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      
+    tileLayerInstance = L.tileLayer(tileUrl, {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap & CARTO'
+    }).addTo(mapInstance);
+
+    markersGroup = L.layerGroup().addTo(mapInstance);
+  }
+
+  setTimeout(() => {
+    mapInstance.invalidateSize();
+    loadMapStops();
+  }, 100);
+}
+
+async function loadMapStops() {
+  if (!mapInstance || !markersGroup) return;
+  markersGroup.clearLayers();
+  if (routePolyline) mapInstance.removeLayer(routePolyline);
+
+  try {
+    const res = await fetch("/api/stops");
+    const data = await res.json();
+    const stops = data.stops || [];
+
+    document.getElementById("badge-total").textContent = `${stops.length} Saved Stops`;
+    const socialCount = stops.filter(s => s.is_social_media_pick || s.source_platform).length;
+    document.getElementById("badge-social").textContent = `✨ ${socialCount} Social POIs`;
+
+    const latLngs = [];
+
+    stops.forEach(stop => {
+      const isSocial = stop.is_social_media_pick || stop.source_platform;
+      const lat = stop.lat || 44.5;
+      const lng = stop.lng || -86.5;
+      latLngs.push([lat, lng]);
+
+      // Night Mode Neon Pin Styling
+      const markerHtml = isSocial ? 
+        `<div style="background:#a855f7; color:#fff; padding:6px; border-radius:50%; width:34px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 15px rgba(168,85,247,0.8); border:2px solid #fff;">📱</div>` :
+        `<div style="background:#6366f1; color:#fff; padding:6px; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 12px rgba(99,102,241,0.8); border:2px solid #fff;">📍</div>`;
+
+      const customIcon = L.divIcon({
+        html: markerHtml,
+        className: 'custom-map-pin',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(markersGroup);
+
+      const platformBadge = isSocial ? `<span style="background:rgba(245,158,11,0.2); color:#fcd34d; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; border:1px solid rgba(245,158,11,0.4);">Flagged on ${stop.source_platform || 'Social Media'}</span>` : '';
+      
+      const popupContent = `
+        <div style="font-family:'Plus Jakarta Sans', sans-serif; padding:4px; max-width:240px; color:#0f172a;">
+          ${platformBadge}
+          <h4 style="margin:6px 0 4px 0; color:#0f172a; font-size:15px; font-weight:700;">${stop.name || 'Road Trip Stop'}</h4>
+          <p style="margin:0 0 6px 0; color:#475569; font-size:12px; font-weight:500;">📍 ${stop.location || ''} (${stop.category || 'Point of Interest'})</p>
+          <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#334155; border-top:1px solid #e2e8f0; padding-top:6px; margin-top:6px;">
+            <span>Rating: ⭐ ${stop.kid_friendly_rating || 4.8}</span>
+            <span>Duration: ⏱️ ${stop.estimated_duration_mins || 60}m</span>
+          </div>
+          ${stop.allergy_safe_notes ? `<p style="margin:6px 0 0 0; color:#047857; font-size:11px; font-weight:600; background:#ecfdf5; padding:4px 6px; border-radius:6px;">🛡️ ${stop.allergy_safe_notes}</p>` : ''}
+        </div>
+      `;
+      marker.bindPopup(popupContent);
+    });
+
+    if (latLngs.length > 1) {
+      latLngs.sort((a, b) => a[0] - b[0]);
+      // Glowing neon purple/indigo polyline for night mode
+      routePolyline = L.polyline(latLngs, {
+        color: '#a855f7',
+        weight: 5,
+        opacity: 0.9,
+        dashArray: '8, 8'
+      }).addTo(mapInstance);
+
+      mapInstance.fitBounds(L.latLngBounds(latLngs).pad(0.2));
+    }
+  } catch (err) {
+    console.error("Failed to load map stops:", err);
+  }
+}
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -62,14 +675,11 @@ function bubble(who) {
   return b;
 }
 
-/* ----------------------------------------------------------------------------
- * A2UI mini-renderer (v0.8 Basic Catalog subset).
- * Renders Card / Column / Row / Text / Divider / List / Image / Icon.
- * Anything else falls back to plain text (see renderReply). All text goes in via
- * textContent and image URLs are validated, so agent output can't inject HTML.
- * -------------------------------------------------------------------------- */
+function sendPrompt(text) {
+  input.value = text;
+  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+}
 
-// A "bound value" is usually {literalString: "..."}; we only support literals.
 function boundStr(v) {
   if (v == null) return "";
   if (typeof v === "string") return v;
@@ -77,7 +687,6 @@ function boundStr(v) {
   return "";
 }
 
-// child ids of a component's props: single `child` and/or `children.explicitList`.
 function childIds(props) {
   const ids = [];
   if (props && typeof props.child === "string") ids.push(props.child);
@@ -86,11 +695,10 @@ function childIds(props) {
   return ids;
 }
 
-// A2UI icon names are camelCase (locationOn); Material Symbols wants snake_case.
 function iconName(n) { return String(n || "").replace(/([a-z0-9])([A-Z])/g, "$1_$2").replace(/\s+/g, "_").toLowerCase(); }
 
 function buildNode(id, comps, seen) {
-  if (!id || seen.has(id)) return null;   // missing / cycle guard
+  if (!id || seen.has(id)) return null;
   seen.add(id);
   const spec = comps[id];
   if (!spec || typeof spec !== "object") return null;
@@ -123,19 +731,17 @@ function buildNode(id, comps, seen) {
       return el("hr", "a2divider");
     case "Image": {
       const src = boundStr(props.url || props.src);
-      if (!/^https?:\/\//i.test(src)) return null;   // only allow safe URLs
+      if (!/^https?:\/\//i.test(src)) return null;
       const img = el("img", "a2img"); img.src = src; img.alt = boundStr(props.alt) || ""; return img;
     }
     case "Icon": {
       const s = el("span", "material-symbols-outlined"); s.textContent = iconName(boundStr(props.name) || props.name); return s;
     }
     default:
-      return null;   // unknown component -> skipped (text fallback covers content)
+      return null;
   }
 }
 
-// Render one or more A2UI messages (beginRendering + surfaceUpdate) into `container`.
-// Returns true if anything was drawn.
 function renderSurface(messages, container) {
   const comps = {};
   const roots = [];
@@ -145,7 +751,7 @@ function renderSurface(messages, container) {
     if (su && Array.isArray(su.components)) for (const c of su.components) if (c && c.id && c.component) comps[c.id] = c.component;
   }
   let rootIds = roots.filter(r => comps[r]);
-  if (rootIds.length === 0) {   // no valid root given -> infer un-referenced components
+  if (rootIds.length === 0) {
     const referenced = new Set();
     for (const id in comps) { const spec = comps[id]; childIds(spec[Object.keys(spec)[0]] || {}).forEach(c => referenced.add(c)); }
     rootIds = Object.keys(comps).filter(id => !referenced.has(id));
@@ -155,7 +761,6 @@ function renderSurface(messages, container) {
   return drew;
 }
 
-// Fallback: pull every Text value out of the messages as plain text.
 function flattenText(messages) {
   const out = [];
   for (const m of messages) {
@@ -166,7 +771,156 @@ function flattenText(messages) {
 }
 
 function renderReply(b, parts) {
-  b.textContent = "";   // clear the "…" placeholder
+  b.textContent = "";
+  const texts = parts.filter(p => p && (p.kind === "text" || (!p.kind && p.text))).map(p => p.text || "");
+  const a2ui = parts.filter(p => p && p.kind === "a2ui" && p.data).map(p => p.data);
+
+  const textStr = texts.join("\n").trim();
+  if (textStr) b.appendChild(el("div", null, textStr));
+
+  if (a2ui.length) {
+    b.classList.add("rich");
+    if (!renderSurface(a2ui, b)) b.appendChild(el("div", null, flattenText(a2ui) || "(no card content)"));
+  }
+  if (!b.childNodes.length) b.textContent = "(no response)";
+  log.scrollTop = log.scrollHeight;
+
+  if (mapInstance) loadMapStops();
+}
+
+form.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  bubble("user").textContent = text;
+  input.value = "";
+  const b = bubble("agent"); b.textContent = "…";
+  try {
+    const res = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }) });
+    const raw = await res.text();
+    let data;
+    try { data = JSON.parse(raw); }
+    catch { throw new Error(`Server returned non-JSON (HTTP ${res.status}). ${raw.slice(0, 300)}`); }
+    renderReply(b, data.parts || []);
+  } catch (e) {
+    b.textContent = "Error: " + e.message;
+  }
+});
+</script>
+</body>
+</html>
+
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+function bubble(who) {
+  const m = el("div", "msg " + who);
+  const b = el("div", "bubble");
+  m.appendChild(b); log.appendChild(m); log.scrollTop = log.scrollHeight;
+  return b;
+}
+
+function sendPrompt(text) {
+  input.value = text;
+  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+}
+
+function boundStr(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v.literalString === "string") return v.literalString;
+  return "";
+}
+
+function childIds(props) {
+  const ids = [];
+  if (props && typeof props.child === "string") ids.push(props.child);
+  const ch = props && props.children;
+  if (ch && Array.isArray(ch.explicitList)) for (const c of ch.explicitList) if (typeof c === "string") ids.push(c);
+  return ids;
+}
+
+function iconName(n) { return String(n || "").replace(/([a-z0-9])([A-Z])/g, "$1_$2").replace(/\s+/g, "_").toLowerCase(); }
+
+function buildNode(id, comps, seen) {
+  if (!id || seen.has(id)) return null;
+  seen.add(id);
+  const spec = comps[id];
+  if (!spec || typeof spec !== "object") return null;
+  const type = Object.keys(spec)[0];
+  const props = spec[type] || {};
+  const kids = () => childIds(props).map(cid => buildNode(cid, comps, seen)).filter(Boolean);
+
+  switch (type) {
+    case "Card": {
+      const d = el("div", "a2card"); kids().forEach(n => d.appendChild(n)); return d;
+    }
+    case "Column":
+    case "List": {
+      const horizontal = type === "List" && props.direction === "horizontal";
+      const d = el("div", horizontal ? "a2row" : "a2col"); kids().forEach(n => d.appendChild(n)); return d;
+    }
+    case "Row": {
+      const d = el("div", "a2row" + (props.distribution === "spaceBetween" ? " between" : ""));
+      kids().forEach(n => d.appendChild(n)); return d;
+    }
+    case "Text": {
+      const t = el("div", "a2text");
+      const hint = String(props.usageHint || "body").toLowerCase();
+      if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(hint)) t.classList.add("a2-" + hint);
+      else if (hint === "caption") t.classList.add("a2-caption");
+      t.textContent = boundStr(props.text);
+      return t;
+    }
+    case "Divider":
+      return el("hr", "a2divider");
+    case "Image": {
+      const src = boundStr(props.url || props.src);
+      if (!/^https?:\/\//i.test(src)) return null;
+      const img = el("img", "a2img"); img.src = src; img.alt = boundStr(props.alt) || ""; return img;
+    }
+    case "Icon": {
+      const s = el("span", "material-symbols-outlined"); s.textContent = iconName(boundStr(props.name) || props.name); return s;
+    }
+    default:
+      return null;
+  }
+}
+
+function renderSurface(messages, container) {
+  const comps = {};
+  const roots = [];
+  for (const m of messages) {
+    if (m.beginRendering && typeof m.beginRendering.root === "string") roots.push(m.beginRendering.root);
+    const su = m.surfaceUpdate;
+    if (su && Array.isArray(su.components)) for (const c of su.components) if (c && c.id && c.component) comps[c.id] = c.component;
+  }
+  let rootIds = roots.filter(r => comps[r]);
+  if (rootIds.length === 0) {
+    const referenced = new Set();
+    for (const id in comps) { const spec = comps[id]; childIds(spec[Object.keys(spec)[0]] || {}).forEach(c => referenced.add(c)); }
+    rootIds = Object.keys(comps).filter(id => !referenced.has(id));
+  }
+  let drew = false;
+  for (const rid of rootIds) { const node = buildNode(rid, comps, new Set()); if (node) { container.appendChild(node); drew = true; } }
+  return drew;
+}
+
+function flattenText(messages) {
+  const out = [];
+  for (const m of messages) {
+    const su = m.surfaceUpdate;
+    if (su && Array.isArray(su.components)) for (const c of su.components) if (c && c.component && c.component.Text) out.push(boundStr(c.component.Text.text));
+  }
+  return out.join("\n").trim();
+}
+
+function renderReply(b, parts) {
+  b.textContent = "";
   const texts = parts.filter(p => p && (p.kind === "text" || (!p.kind && p.text))).map(p => p.text || "");
   const a2ui = parts.filter(p => p && p.kind === "a2ui" && p.data).map(p => p.data);
 
@@ -181,7 +935,6 @@ function renderReply(b, parts) {
   log.scrollTop = log.scrollHeight;
 }
 
-// The proxy returns { parts: [{kind:"text",text} | {kind:"a2ui",data}] }.
 form.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const text = input.value.trim();
@@ -191,9 +944,6 @@ form.addEventListener("submit", async (ev) => {
   const b = bubble("agent"); b.textContent = "…";
   try {
     const res = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }) });
-    // Read as text first, then parse. If the proxy ever returns a non-JSON error
-    // page (e.g. a plain "Internal Server Error"), show that body instead of a
-    // cryptic "Unexpected token" JSON error.
     const raw = await res.text();
     let data;
     try { data = JSON.parse(raw); }
@@ -206,3 +956,4 @@ form.addEventListener("submit", async (ev) => {
 </script>
 </body>
 </html>
+

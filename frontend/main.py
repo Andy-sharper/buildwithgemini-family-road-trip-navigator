@@ -24,6 +24,7 @@ Run:
   python main.py                 # -> http://localhost:8080
 """
 
+import json
 import os
 import re
 import uuid
@@ -77,6 +78,65 @@ def _auth_headers() -> dict[str, str]:
 
 
 app = FastAPI()
+
+
+@app.get("/api/stops")
+async def get_stops():
+    """Fetch saved road trip stops and social media POIs from Firestore for map rendering."""
+    try:
+        from google.cloud import firestore
+
+        PROJECT_ID = "qwiklabs-gcp-03-cfff24bedafc"
+        db = firestore.Client(project=PROJECT_ID)
+        docs = db.collection("road_trip_stops").stream()
+        stops = []
+
+        coord_map = {
+            "chicago": [41.8781, -87.6298],
+            "milwaukee": [43.0389, -87.9065],
+            "green bay": [44.5133, -88.0133],
+            "mackinac": [45.8492, -84.6189],
+            "st. ignace": [45.8672, -84.7278],
+            "pictured rocks": [46.5614, -86.3267],
+            "marquette": [46.5436, -87.3954],
+            "tahquamenon": [46.5744, -85.2536],
+            "san francisco": [37.7749, -122.4194],
+            "pacifica": [37.6138, -122.4869],
+            "half moon bay": [37.4636, -122.4286],
+            "pigeon point": [37.1816, -122.3939],
+            "davenport": [37.0114, -122.1931],
+            "santa cruz": [36.9741, -122.0308],
+            "monterey": [36.6002, -121.8947],
+            "carmel": [36.5552, -121.9233],
+            "big sur": [36.2704, -121.8081],
+        }
+
+        import random
+
+        for doc in docs:
+            d = doc.to_dict()
+            loc_str = d.get("location", "").lower()
+            name_str = d.get("name", "").lower()
+
+            lat, lng = None, None
+            for key, coords in coord_map.items():
+                if key in loc_str or key in name_str:
+                    lat = coords[0] + (random.random() - 0.5) * 0.03
+                    lng = coords[1] + (random.random() - 0.5) * 0.03
+                    break
+
+            if lat is None:
+                lat = 44.5 + (len(stops) % 5) * 0.4
+                lng = -87.5 + (len(stops) % 5) * 0.3
+
+            d["lat"] = lat
+            d["lng"] = lng
+            stops.append(d)
+
+        return {"stops": stops}
+    except Exception as e:
+        return {"stops": [], "error": str(e)}
+
 
 
 @app.exception_handler(Exception)
